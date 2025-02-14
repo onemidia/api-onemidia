@@ -32,7 +32,6 @@ def formatar_numero(valor):
     try:
         valor = valor.replace(',', '.')  # Substitui vírgula por ponto
         numero = float(valor)
-
         # Formata o número com duas casas decimais, preservando os zeros
         return "{:.2f}".format(numero)
     except ValueError:
@@ -58,7 +57,7 @@ def index():
 
             with open(file_path, 'r', encoding='utf-8') as file:
                 reader = csv.reader(file, delimiter=';')
-                produtos =
+                produtos =  # Inicializa a lista de produtos
 
                 db_session = next(get_db())
                 db_session.execute(text("SET statement_timeout TO 30000;"))
@@ -76,10 +75,10 @@ def index():
                             flash(f'Erro: linha inválida {row}', 'error')
                             continue
 
-                        id_produto = row.zfill(10)
-                        descricao = row
-                        valor = formatar_numero(row)
-                        unidade = row
+                        id_produto = row.zfill(10)  # Corrigido: row em vez de row
+                        descricao = row  # Corrigido: row em vez de row
+                        valor = formatar_numero(row)  # Corrigido: row em vez de row
+                        unidade = row  # Corrigido: row em vez de row
 
                         if valor is None:
                             flash(f'Erro: valor inválido {row} na linha {row}', 'error')
@@ -91,6 +90,7 @@ def index():
                             produto_existente.valor = valor
                             produto_existente.unidade = unidade
                         else:
+                            # Cria um novo produto se não existir
                             produto = Produto(id=int(id_produto), codigo=id_produto, descricao=descricao, valor=valor, unidade=unidade)
                             db_session.add(produto)
                         produtos.append(produto)
@@ -110,7 +110,7 @@ def index():
                     db_session.rollback()
                     flash(f'Erro ao salvar dados: {str(e)}', 'error')
 
-                return redirect(url_for('routes.index'))
+            return redirect(url_for('routes.index'))
 
     return render_template('index.html')
 
