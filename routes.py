@@ -43,7 +43,7 @@ def index():
 
             with open(file_path, 'r', encoding='utf-8') as file:
                 reader = csv.reader(file, delimiter=';')
-                produtos = []
+                produtos =
 
                 db_session = next(get_db())
                 db_session.execute(text("SET statement_timeout TO 30000;"))
@@ -62,10 +62,10 @@ def index():
                             flash(f'Erro: linha inválida {row}', 'error')
                             continue
 
-                        id_produto = row[0].zfill(10)  # Corrigido
-                        descricao = row[1]  # Corrigido
-                        valor = formatar_numero(row[2])  # Corrigido
-                        unidade = row[3]  # Corrigido
+                        id_produto = row.zfill(10)  # Corrigido
+                        descricao = row  # Corrigido
+                        valor = formatar_numero(row)  # Corrigido
+                        unidade = row  # Corrigido
 
                         if valor is None:
                             flash(f'Erro: valor inválido {row}', 'error')
@@ -77,7 +77,7 @@ def index():
                             produto_existente.valor = valor
                             produto_existente.unidade = unidade
                         else:
-                            produto = Produto(id=int(id_produto), codigo=id_produto, descricao=descricao, valor=valor, unidade=unidade)
+                            produto = Produto(id=id_produto, codigo=id_produto, descricao=descricao, valor=valor, unidade=unidade)  # Alteração aqui
                             db_session.add(produto)
                         
                         produtos.append(produto)
