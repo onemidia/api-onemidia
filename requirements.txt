@@ -6,5 +6,4 @@ gunicorn
 requests
 python-dotenv
 psycopg2-binary
-flask_caching
-pip install flask-caching
+Flask-Caching
