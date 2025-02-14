@@ -10,9 +10,8 @@ from database import get_db
 
 # Configuração do Flask
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') # Configuração da SECRET_KEY
-# Aumenta o timeout global para 60 segundos
-WSGIRequestHandler.timeout = 60
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')  # Configuração da SECRET_KEY
+WSGIRequestHandler.timeout = 60  # Aumenta o timeout global para 60 segundos
 
 # Configuração do cache
 cache = Cache(config={'CACHE_TYPE': 'simple'})
@@ -26,14 +25,12 @@ ALLOWED_EXTENSIONS = {'txt'}
 routes = Blueprint("routes", __name__)
 
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1).lower() in ALLOWED_EXTENSIONS
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def formatar_numero(valor):
     try:
         valor = valor.replace(',', '.')  # Substitui vírgula por ponto
-        numero = float(valor)
-        # Formata o número com duas casas decimais, preservando os zeros
-        return "{:.2f}".format(numero)
+        return "{:.2f}".format(float(valor))
     except ValueError:
         return None  # Retorna None para valores inválidos
 
@@ -45,72 +42,69 @@ def index():
             return redirect(url_for('routes.index'))
 
         arquivo = request.files['file']
-        if arquivo.filename == '':
-            flash('Nenhum arquivo selecionado', 'error')
+        if arquivo.filename == '' or not allowed_file(arquivo.filename):
+            flash('Arquivo inválido ou não selecionado', 'error')
             return redirect(url_for('routes.index'))
 
-        if arquivo and allowed_file(arquivo.filename):
-            filename = secure_filename(arquivo.filename)
-            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-            file_path = os.path.join(UPLOAD_FOLDER, filename)
-            arquivo.save(file_path)
+        filename = secure_filename(arquivo.filename)
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        arquivo.save(file_path)
 
-            with open(file_path, 'r', encoding='utf-8') as file:
-                reader = csv.reader(file, delimiter=';')
-                produtos =  # Inicializa a lista de produtos
+        produtos = []  # Inicializa a lista de produtos
+        db_session = next(get_db())
+        db_session.execute(text("SET statement_timeout TO 30000;"))
+        
+        try:
+            db_session.query(Produto).delete()
+            db_session.commit()
+        except exc.SQLAlchemyError as e:
+            db_session.rollback()
+            flash(f'Erro ao limpar a tabela: {str(e)}', 'error')
+            return render_template('index.html')
 
-                db_session = next(get_db())
-                db_session.execute(text("SET statement_timeout TO 30000;"))
+        with open(file_path, 'r', encoding='utf-8') as file:
+            reader = csv.reader(file, delimiter=';')
+            for row in reader:
                 try:
-                    db_session.query(Produto).delete()
-                    db_session.commit()
-                except exc.SQLAlchemyError as e:
-                    db_session.rollback()
-                    flash(f'Erro ao limpar a tabela: {str(e)}', 'error')
-                    return render_template('index.html')
-
-                for row in reader:
-                    try:
-                        if len(row) < 4:
-                            flash(f'Erro: linha inválida {row}', 'error')
-                            continue
-
-                        id_produto = row.zfill(10)  # Corrigido: row em vez de row
-                        descricao = row  # Corrigido: row em vez de row
-                        valor = formatar_numero(row)  # Corrigido: row em vez de row
-                        unidade = row  # Corrigido: row em vez de row
-
-                        if valor is None:
-                            flash(f'Erro: valor inválido {row} na linha {row}', 'error')
-                            continue
-
-                        produto_existente = db_session.query(Produto).filter_by(codigo=id_produto).first()
-                        if produto_existente:
-                            produto_existente.descricao = descricao
-                            produto_existente.valor = valor
-                            produto_existente.unidade = unidade
-                        else:
-                            # Cria um novo produto se não existir
-                            produto = Produto(id=int(id_produto), codigo=id_produto, descricao=descricao, valor=valor, unidade=unidade)
-                            db_session.add(produto)
-                        produtos.append(produto)
-                    except (ValueError, IndexError, exc.SQLAlchemyError) as e:
-                        db_session.rollback()
-                        flash(f'Erro ao processar linha: {row} - {str(e)}', 'error')
+                    if len(row) < 4:
+                        flash(f'Erro: linha inválida {row}', 'error')
                         continue
 
-                try:
-                    if produtos:
-                        db_session.commit()
-                        cache.delete('produtos_cache')
-                        flash('Arquivo enviado e atualizado com sucesso!', 'success')
-                    else:
-                        flash('Nenhum produto processado. Verifique o arquivo.', 'warning')
-                except exc.SQLAlchemyError as e:
-                    db_session.rollback()
-                    flash(f'Erro ao salvar dados: {str(e)}', 'error')
+                    id_produto, descricao, valor, unidade = row[:4]
+                    id_produto = id_produto.zfill(10)
+                    valor = formatar_numero(valor)
+                    
+                    if valor is None:
+                        flash(f'Erro: valor inválido {row}', 'error')
+                        continue
 
-            return redirect(url_for('routes.index'))
+                    produto_existente = db_session.query(Produto).filter_by(codigo=id_produto).first()
+                    if produto_existente:
+                        produto_existente.descricao = descricao
+                        produto_existente.valor = valor
+                        produto_existente.unidade = unidade
+                    else:
+                        produto = Produto(id=int(id_produto), codigo=id_produto, descricao=descricao, valor=valor, unidade=unidade)
+                        db_session.add(produto)
+                        produtos.append(produto)
+                except (ValueError, IndexError, exc.SQLAlchemyError) as e:
+                    db_session.rollback()
+                    flash(f'Erro ao processar linha: {row} - {str(e)}', 'error')
+                    continue
+
+        try:
+            if produtos:
+                db_session.commit()
+                cache.delete('produtos_cache')
+                flash('Arquivo enviado e atualizado com sucesso!', 'success')
+            else:
+                flash('Nenhum produto processado. Verifique o arquivo.', 'warning')
+        except exc.SQLAlchemyError as e:
+            db_session.rollback()
+            flash(f'Erro ao salvar dados: {str(e)}', 'error')
+
+        return redirect(url_for('routes.index'))
 
     return render_template('index.html')
 
