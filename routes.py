@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 from sqlalchemy import text, exc
 from models import Produto
 from database import get_db
-from extensions import cache  # Agora importamos o cache corretamente
+from extensions import cache
 
 # Configuração do upload
 UPLOAD_FOLDER = './uploads'
@@ -116,7 +116,7 @@ def get_produtos():
             'id': produto.id,
             'codigo': produto.codigo,
             'descricao': produto.descricao,
-            'valor': produto.valor,
+            'valor': formatar_numero(str(produto.valor).replace('.', ',')),  # Formata o valor
             'unidade': produto.unidade
         } for produto in produtos
     ])
